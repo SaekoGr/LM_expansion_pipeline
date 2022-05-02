@@ -1,0 +1,31 @@
+{
+    "source_path":["/home/sabi/Desktop/datasets-lfs/MOMVzh_01/stt.phxstm"],
+    "source_model":["/home/sabi/Desktop/LM_expansion_pipeline/src/ZH/ZH_CN/1.0.0/LM.arpa.gz"],
+    "create_ngrams":[true],
+    "target_language":["zh"],
+    "dictionary" : ["/home/sabi/Desktop/dictionaries/ZH_CN/ZH_CN_pure.dct"],
+    "trim_input":[true],
+    "evaluation":[true],
+    "evaluation_path":["/home/sabi/Desktop/datasets-lfs"],
+    "evaluation_datasets":[[
+       "MOMVzh_01/stt.phxstm"
+    ]],
+    "lid_threshold" : [0.9],
+    "order_ngram" : [3],
+    "k_ngrams" : [500],
+    "ngrams_percentage" : [null],
+    "doc_default" : [15],
+    "doc_limit" : [50],
+    "ppl_limit" : [1100, 1200, 1300, 1400],
+    "len_penalty" : [5],
+    "web_tags" : [["p","span"]],
+    "is_standard_lang" : [false],
+    "search_preference" : ["google"],
+    "use_window" : [false],
+    "window_len" : [0],
+    "output_path" : ["/home/sabi/Desktop/LM_expansion_pipeline/src/ZH/results_mandarin"],
+    "statistics_path" : ["/home/sabi/Desktop/LM_expansion_pipeline/src/ZH/statistics_mandarin"],
+    "download_path": ["/home/sabi/Desktop/LM_expansion_pipeline/src/ZH/download_mandarin_p_span"],
+    "ppl_path" : ["/home/sabi/Desktop/LM_expansion_pipeline/src/ZH/ppl_mandarin"],
+    "timeout" : [90]
+ }
