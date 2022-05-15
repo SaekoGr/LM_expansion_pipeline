@@ -4,16 +4,16 @@ from os import getcwd, path
 REQUIRED_VALUES = [
     "source_path",          # path to the source file
     "source_model",         # path to the original model
-    "create_ngrams",        # True (stt.phxstm) / False (kws.phxstm)
     "target_language",      # ISO code of target language
-    "dictionary",           # Phonexia language dictionary
-    "evaluation",           # True / False (not evaluating at all)   
+    "dictionary",           # Phonexia language dictionary 
     "evaluation_path",      # path to where evaluation datasets are stored
     "evaluation_datasets"   # list of datasets, uses stm transcripts by default
 ]
 
 # values that do not have to be provided
 DEFAULT_VALUES = {
+    "evaluation" : False,           # True / False (not evaluating at all)  
+    "create_ngrams" : True,        # True (stt.phxstm) / False (kws.phxstm)
     "trim_input" : True,            # remove spelling and bracketed (foreign) words
     "lid_threshold" : 0.9,          # threshold for language identification
     "order_ngram" : 3,              # order of ngram
@@ -31,8 +31,11 @@ DEFAULT_VALUES = {
     "download_path" : path.join(getcwd(), "download"),
     "ppl_path" : path.join(getcwd(), "ppl"),
     "evaluation_path" : "/home/sabi/Desktop/datasets-lfs",
-    "use_window" : False,
-    "window_len" : 10,
+    "use_window_par_filter" : False,
+    "use_doc_filter" : False,
+    "filter_type" : "avg",
+    "window_len" : None,
+    "filter_threshold" : -4,
     "timeout" : 90,
     "evaluation_datasets" : []
 }
@@ -58,8 +61,11 @@ CONSTRAINT_TYPES = {"source_path" : "path",
                     "web_tags" : "web_tags",
                     "is_standard_lang" : "bool_val",
                     "search_preference" : "search_pref",
-                    "use_window" : "bool_val",
+                    "use_window_par_filter" : "bool_val",
+                    "use_doc_filter" : "bool_val",
+                    "filter_type" : "filter",
                     "window_len" : "positive_integer",
+                    "filter_threshold" : "negative_float",
                     "output_path" : "path",
                     "statistics_path" : "path",
                     "download_path" : "path",
@@ -69,4 +75,3 @@ CONSTRAINT_TYPES = {"source_path" : "path",
 
 all_hyperparameters = list(CONSTRAINT_TYPES.keys())
 all_hyperparameters.sort()
-print(all_hyperparameters)

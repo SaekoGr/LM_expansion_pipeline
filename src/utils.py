@@ -81,7 +81,6 @@ def trim_input(content):
         single_line = content[i]
         single_line = remove_spelling(single_line)
         single_line = to_lower(single_line)
-        #single_line = remove_bracketed_words(single_line)
         single_line = adjust_spacing(single_line)
         content[i] = single_line
     return content

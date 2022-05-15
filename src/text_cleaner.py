@@ -162,8 +162,8 @@ class TextCleaner:
         if self._is_standard_lang:
             line = self._tokens_expand_numbers(line)
             
-        line = self._tokens_remove_nonchinese(line)
-        line = self._tokens_chinese(line)
+        #line = self._tokens_remove_nonchinese(line)
+        #line = self._tokens_chinese(line)
         line = self._tokens_spacing(line)
         line = self._tokens_remove_charset_violations(line)
         return line

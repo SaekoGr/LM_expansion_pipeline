@@ -1,19 +1,11 @@
 from config_parser_values import REQUIRED_VALUES, DEFAULT_VALUES, CONSTRAINT_TYPES
-from os import getcwd, path, mkdir
-import sys
+from os import path, makedirs
 
 class ConfigParser():
     def __init__(self, config):
         # check for existance of config file first TODO
         self._load_config_values(config)
-        
-    def _show_help(self): # TODO fill in the proper message
-        """Prints out help message for the user"""
-        pass
-    
-    def _show_concrete_error(self, error_type):
-        pass
-    
+            
     def _config_checker(self):
         """Check all values for constraint violations"""
         
@@ -25,7 +17,7 @@ class ConfigParser():
                 # create folder for output
                 if key in ["output_path", "statistics_path", "download_path", "ppl_path"]:
                     if not path.exists(val):
-                        mkdir(val)
+                        makedirs(val)
                     
                 # don't check evaluation parameters if evaluation isn't required
                 if self.evaluation is False and 'evaluation_' in key:
@@ -34,7 +26,53 @@ class ConfigParser():
                 # check existence of path
                 if not path.exists(val):
                     raise Exception("{} does not exist and could not be created".format(val))
+            elif constraint == "bool_val":
+                if not isinstance(val, bool):
+                    raise Exception("{} expected a boolean value, but {} was given".format(key, val))
+            elif constraint == "positive_integer" or constraint == "positive_float":
+                if not isinstance(val, (int,float)) or int(val) <= 0:
+                    if key == "window_len" and val is None:
+                        pass
+                    else:
+                        raise Exception("{} expected a positive integer value, but {} was given".format(key, val))
+            elif constraint == "lang":
+                if isinstance(val, str):
+                    if len(val) != 2:
+                        raise Exception("{} expected a 2-character language code string, but {} was given".format(key, val))
+                else:
+                    raise Exception("{} expected a 2-character language code string, but {} was given".format(key, val))
+            elif constraint == "zero_one_range":
+                if val is None or isinstance(val, (float, int)):
+                    if key == "ngrams_percentage":
+                        if val is not None:
+                            if not (0 <= val <= 1):
+                                raise Exception("{} expected a float value in <0,1> range or None, but {} was given".format(key, val))
+                    else:
+                        if val is None:
+                            raise Exception("{} expected a float value in <0,1> range, but {} was given".format(key, val))
 
+                        if not (0 <= val <= 1):
+                            raise Exception("{} expected a float value in <0,1> range, but {} was given".format(key, val))
+                else:
+                    raise Exception("{} expected a float value in <0,1> range, but {} was given".format(key, val))
+            elif constraint == "search_pref":
+                if val.casefold() not in ["google", "bing"]:
+                    raise Exception("{} expected a value of \"google\" or \"bing\", but {} was given".format(key, val))
+            elif constraint == "filter":
+                if val.casefold() not in ["median", "avg"]:
+                    raise Exception("{} expected a value of \"median\" or \"avg\", but {} was given".format(key, val))
+            elif constraint == "negative_float":
+                if isinstance(val, (float, int)):
+                    if float(val) >= 0:
+                        raise Exception("{} expected a negative float value, but {} was given".format(key, val))
+                else:
+                    raise Exception("{} expected a negative float value, but {} was given".format(key, val))
+            elif constraint == "eval_datasets" or constraint == "web_tags":
+                if isinstance(val, list):
+                    eval_types = [type(item) for item in val]
+                    for single_type in eval_types:
+                        if single_type != str:
+                            raise Exception("{} expected a list of strings, but {} was given".format(key, val))
     
     def _load_single_value(self, config, value_name):
         """Load value from config, otherwise use default value"""
@@ -75,7 +113,10 @@ class ConfigParser():
         self.is_standard_lang = self._load_single_value(config, "is_standard_lang")
         self.timeout = self._load_single_value(config, "timeout")
         self.search_preference = self._load_single_value(config, "search_preference")
-        self.use_window = self._load_single_value(config, "use_window")
+        self.use_window_par_filter = self._load_single_value(config, "use_window_par_filter")
+        self.use_doc_filter = self._load_single_value(config, "use_doc_filter")
+        self.filter_type = self._load_single_value(config, "filter_type")
+        self.filter_threshold = self._load_single_value(config, "filter_threshold")
         self.window_len = self._load_single_value(config, "window_len")
         self.output_path = self._load_single_value(config, "output_path")
         self.statistics_path = self._load_single_value(config, "statistics_path")

@@ -1,4 +1,5 @@
 import utils
+import collections
 
 class NgramsProvider:
     def __init__(self, content, parameters, already_processed=[]):
@@ -14,6 +15,9 @@ class NgramsProvider:
         self.expected_count = {}
         self.already_processed = already_processed
         
+        self.get_top_ngrams(500)
+        
+    # go through all the sentences and extract all tuples
     def _create_ngrams(self, sentences, n=3):
         ngram_results = []
 
@@ -24,9 +28,11 @@ class NgramsProvider:
                 ngram_results.append(tuple(sentence[i:i+n]))
         return ngram_results
     
+    # sort dictionary, highest values first
     def _sort_ngrams_dict(self, ngrams, reverse = False):
         return {k: v for k, v in sorted(ngrams.items(), key=lambda item: item[1], reverse = reverse)}
     
+    # calculate precision of a single ngram
     def _single_ngram_precision(self, ngram):
         """Calculates the initial precision of the searched term"""
         ngram = ' '.join(ngram)
@@ -34,15 +40,27 @@ class NgramsProvider:
         precision = min((ngramLen/self.precision_length)**2, 1.0)
         return precision
      
+    # calculate the document frequency
     def _estimate_ngram_frequency(self, ngrams):
         cnt = utils.words_occurance_cnt(ngrams)
         return cnt
         
+    # estimate initial precision
     def _estimate_initial_precision(self, ngrams):
         precision = {}
         for ngram in ngrams:
             precision[ngram] = self._single_ngram_precision(ngram)
         return precision
+    
+    def _choose_chinese(self, k, ngrams):
+        new_ngrams = {}
+        for key, val in ngrams.items():
+            # choose less common trigram
+            if float(val) < 2: # and float(val) > 1:
+                if len(list(set(key))) == self.order_ngram:
+                    new_ngrams[key] = val
+        
+        return new_ngrams
         
     def get_top_ngrams(self, k = 50, percentage = None):
         if self.create_ngrams:
@@ -55,12 +73,15 @@ class NgramsProvider:
             # use percentage if given
             if percentage is not None:
                 k = round(len(all_ngrams.keys()) * percentage)
-
+            
             # choose all ngrams
             if k >= len(all_ngrams.keys()):
                 chosen_ngrams = list(all_ngrams.keys())
+                tmp = list(all_ngrams.items())
             else: # actually choose top k ones
                 chosen_ngrams = list(all_ngrams.keys())[:k]
+                tmp = list(all_ngrams.items())[:k]
+                
                 
             # filter out those that were already processed
             chosen_ngrams = list(filter(lambda ngram: ' '.join(ngram) not in self.already_processed, chosen_ngrams))
@@ -72,7 +93,7 @@ class NgramsProvider:
     def _estimate_document_count(self):
         self.precision = self._estimate_initial_precision(self.ngrams)
         self.frequency = self._estimate_ngram_frequency(self.ngrams)
-        
+
         for ngram in self.ngrams:
             self.expected_count[ngram] = self.precision[ngram] * self.frequency[ngram]
         

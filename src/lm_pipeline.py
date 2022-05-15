@@ -6,10 +6,12 @@ from language_model_interface import LanguageModelApi
 from text_cleaner import TextCleaner
 from ngrams_provider import NgramsProvider
 import utils
-from os import path
+from os import path, environ
+from sys import exit
 import time
 from datetime import datetime
-from multiprocessing import Process
+import multiprocessing
+
 
 # sample configuration for ease of testing
 SAMPLE_CONFIG = {
@@ -31,7 +33,7 @@ class WebCrawler:
         
         # prepare fingerprint, either used the one provided or calculate a fresh one
         self._prepare_fingerprint(fingerprint)
-        print(self.fingerprint)
+        #print(self.fingerprint)
         
         # initialize the text cleaner
         self.text_cleaner = TextCleaner(is_standard_lang=parameters.is_standard_lang)
@@ -46,8 +48,11 @@ class WebCrawler:
         
         # create instance for every class
         self.lid = LanguageIdentification(parameters.target_language, parameters.lid_threshold)
-        self.lm_api = LanguageModelApi(parameters.source_path, parameters.source_model, parameters.output_path, parameters.order_ngram, fingerprint, parameters.ppl_path, parameters.dictionary)
-        self.document_retriever = DocumentRetriever(parameters.search_preference, parameters.download_path, parameters.doc_limit, parameters.doc_default, parameters.web_tags, parameters.target_language)
+        self.lm_api = LanguageModelApi(parameters.source_path, parameters.source_model, parameters.output_path, parameters.order_ngram, 
+                                       fingerprint, parameters.ppl_path, parameters.dictionary, (parameters.use_window_par_filter or parameters.use_doc_filter), 
+                                       parameters.window_len, parameters.filter_type, parameters.filter_threshold)
+        self.document_retriever = DocumentRetriever(parameters.search_preference, parameters.download_path, parameters.doc_limit, parameters.doc_default, 
+                                                    parameters.web_tags, parameters.target_language)
         self.eval_logger = EvaluationLogger(parameters.statistics_path, '_'.join(['evaluation',str(fingerprint)]) + '.tsv')
         self.stats_logger = StatisticsLogger(parameters.statistics_path, '_'.join(['statistics',str(fingerprint)]) + '.tsv')
 
@@ -57,6 +62,14 @@ class WebCrawler:
         # create LM from the source file
         content = self._read_source_file()
         self.lm_api.create_source_lm(content)
+        
+        self.ngrams_provider = NgramsProvider(content, self.parameters, self.already_processed)
+        
+        if self.parameters.evaluation is True:
+            # make sure "srilm" is in the path variable
+            if "srilm" not in environ["PATH"]:
+                print("Please make sure to install SRILM and include it in the PATH environment variable")
+                exit(1)
         
     def _search_logger_file(self, logger_path):
         if path.exists(logger_path):
@@ -125,6 +138,7 @@ class WebCrawler:
         
         # clean the document
         clean_document = self.text_cleaner.clean_document(raw_document)
+        print(clean_document)
         
         # language identification
         lid_result = self.lid.is_target_lang(' '.join(clean_document))
@@ -135,8 +149,12 @@ class WebCrawler:
         # ppl results
         ppl_result = self.lm_api.evaluate_ppl_doc(clean_document, self.fingerprint, link_fingerprint, link, term)
         
-        #if self.parameters.window_len:
-        #    self.lm_api.filter_window(clean_document)
+        if self.parameters.use_doc_filter:
+            clean_document = self.lm_api.filter_document(clean_document)
+        
+        if self.parameters.use_window_par_filter:
+            print("PARAM FIL")
+            clean_document = self.lm_api.filter_window(clean_document)
 
         # access and log results
         resulting_corpora = self._assess_results(term, link, raw_document, clean_document, lid_result, ppl_result)
@@ -144,10 +162,11 @@ class WebCrawler:
         # write down the corpora
         self.lm_api.write_corpora(resulting_corpora, self.lm_api.corpora, append=True)
         
+    # assesses results from single link exploration, writes the results to stats file
     def _assess_results(self, term, link, raw_document, clean_document, lid, ppl):
         raw_len = len(''.join(raw_document))
         lid_res = "YES" if lid else "NO"
-        ppl_binary_res = True if ppl < self.parameters.ppl_threshold else False
+        ppl_binary_res = True if ppl > self.parameters.ppl_threshold else False
         clean_len = len(''.join(clean_document)) if lid and ppl_binary_res else 0
         
         if raw_len == 0:
@@ -162,6 +181,7 @@ class WebCrawler:
         else:
             return []
 
+    # evaluate with every evaluation dataset
     def _evaluate_model(self, model):
         """Evaluates model with all evaluation datasets"""
         self._preprocess_eval_datasets()
@@ -190,15 +210,8 @@ class WebCrawler:
 
 
     def search_web(self):
-        content = self._read_source_file()
-        
-        # initialize ngrams_provider
-        ngrams_provider = NgramsProvider(content, self.parameters, self.already_processed)
-        terms = ngrams_provider.get_top_ngrams(self.parameters.k_ngrams, self.parameters.ngrams_percentage)
-        print(terms)
-        print(len(terms))
-        
-        second_try_links = []
+        # get the chosen ngrams
+        terms = self.ngrams_provider.get_top_ngrams(self.parameters.k_ngrams, self.parameters.ngrams_percentage)
 
         # iterate over all the terms
         for term in terms:
@@ -208,43 +221,55 @@ class WebCrawler:
             
             # expected count of documents for given term
             if self.parameters.create_ngrams:
-                expected_cnt = ngrams_provider.get_expected_count(term)
+                expected_cnt = self.ngrams_provider.get_expected_count(term)
             else:
                 expected_cnt = self.default_cnt
             
+            
             # obtain all links
-            links = self.document_retriever.search_term(term, expected_cnt)
+            manager = multiprocessing.Manager()
+            found_links = manager.dict()
+            
+            link_process = multiprocessing.Process(target=self.document_retriever.search_term, args=(term, expected_cnt, found_links))
+            link_process.start()
+            link_process.join(timeout=self.parameters.timeout*2)
+            link_process.terminate()
+
+            if link_process.exitcode is None:
+                #print("Did not get links for " + str(term))
+                continue
+
+            links = found_links["links"]
+            
+            print("GOT LINKS")
+            print(links)
+            print(term)
+            
             
             # iterate over all the links
             for link in links:
-                single_search = Process(target=self._single_search, args=(link, term, ))
+                single_search = multiprocessing.Process(target=self._single_search, args=(link, term, ))
                 single_search.start()
-                single_search.join(timeout=self.parameters.timeout)
+                single_search.join(timeout=self.parameters.timeout) #500
                 single_search.terminate()
                 
                 if single_search.exitcode is None:
-                    second_try_links.append(link)
-                    print("TIMEOUTED:\t" +  link)
-
-                #break
-            #break
-            # try searching again for links that got stuck
-            #for link in second_try_links:
-            #    single_search = Process(target=self._single_search, args=(link, term, ))
-            #    single_search.start()
-            #    single_search.join(timeout=self.parameters.timeout)
-            #    single_search.terminate()
+                    #print("TIMEOUTED:\t" +  link)
+                    pass
                 
-            #    if single_search.exitcode is None:
-            #        print("TIMEOUTED:\t" +  link)
-
+            exit(1)
 
     def mix_models(self):
+        # create LM from the source file
+        content = self._read_source_file()
+        self.lm_api.create_source_lm(content)
+        
         # create lm model from the downloaded corpora
         self.lm_api._create_webcorpora_lm()
         
         # estimate mixing weights for both models
         self.lm_api.mix_models()
+
 
     def already_done(self):
         return self.lm_api.already_done()
@@ -254,6 +279,8 @@ class WebCrawler:
             self._evaluate_model(self.parameters.source_model)
             self._evaluate_model(self.lm_api.mixed_model)
             
+        #self.lm_api.remove_models()
+            
 def lm_pipeline(config, fingerprint=None, preferred_type=None):
     # create parameters variable
     parameters = ConfigParser(config)
@@ -262,9 +289,8 @@ def lm_pipeline(config, fingerprint=None, preferred_type=None):
 
     if pipeline.already_done():
         return False
-    
     pipeline.search_web()
-    pipeline.mix_models()
-    pipeline.evaluate()
+    #pipeline.mix_models()
+    #pipeline.evaluate()
     return True
 

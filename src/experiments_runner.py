@@ -5,39 +5,34 @@ import json
 import itertools
 from lm_pipeline import lm_pipeline
 from logger import ExperimentsLogger
-from utils import create_fingerprint, hash_fingerprint, read_input, remove_chosen
-import hashlib
+from utils import create_fingerprint, hash_fingerprint
 from config_parser_values import CONSTRAINT_TYPES
 
 dict_values = list(CONSTRAINT_TYPES.keys())
-exp_config = os.path.join(os.getcwd(),"experiments_config_zh.json")
+exp_config = os.path.join(os.getcwd(),"tmp_cs.json")
 
 def load_experiments_config(config_path):
     with open(config_path, 'r') as in_f:
         content = json.load(in_f)
     return content
 
-### TODO TODO MAKE THIS DYNAMIC
-def create_config_dict(combination):
+def create_config_dict(combination, order_values):
     if len(dict_values) != len(combination):
-        raise Exception("Invalid input configuration, please make sure all necessary parameters are present in the correct order")
+        raise Exception("Invalid input configuration, please make sure all the necessary parameters are present and correctly named")
     
     final_dict = {}
-    for real_name, value in zip(dict_values, combination):
-        print(real_name, value)
+    for real_name, value in zip(order_values, combination):
         final_dict[real_name] = value
-        
-    print(final_dict)
     return final_dict
 
-def run_experiments():
-    exp_logger = ExperimentsLogger(os.getcwd(),'experiments_mandarin.tsv')
-    content = load_experiments_config(exp_config)
+def run_experiments(config_path, exp_name):
+    exp_logger = ExperimentsLogger(os.getcwd(),exp_name)
+    content = load_experiments_config(config_path)
+    order_values = list(content.keys())
 
     all_permutations = list(itertools.product(*list(content.values())))
 
     for combination in all_permutations:
-        print("\n\n" + "="*20)
         # create characteristic fingerprint
         fingerprint = create_fingerprint(combination)
         
@@ -48,7 +43,7 @@ def run_experiments():
         # add hash to the info
         fingerprint.append(hash_hex)
         
-        current_exp = create_config_dict(combination)
+        current_exp = create_config_dict(combination, order_values)
         current_exp["fingerprint"] = hash_hex
         
         # always log experiments
@@ -60,8 +55,19 @@ def run_experiments():
         # log experiment if a new one was carried
         if not log_result:
             sys.stdout.write("Already carried out experiment with these parameters. Skipping...\n\n")
-
+        break
 
 if __name__ == "__main__":
-    run_experiments()
+    if len(sys.argv) != 3:
+        sys.stderr.write("Invalid number of parameters.\nMake sure to call the script as python experiments_runner.py [CONFIG PATH] [EXPERIMENTS FILENAME]\n")
+        sys.exit(1)
+    
+    config = sys.argv[1]
+    
+    if not os.path.exists(config):
+        sys.stderr.write("The given configuration path {} does not exist\n".format(config))
+        sys.exit(1)
+    
+    exp_filename = sys.argv[2]
+    run_experiments(config, exp_filename)
     

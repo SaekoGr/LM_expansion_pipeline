@@ -1,5 +1,4 @@
 from os import path, stat
-import varname
 
 class LoggerBase:
     def __init__(self, output_path, output_file):
@@ -41,7 +40,8 @@ class ExperimentsLogger(LoggerBase):
         self._header = ["source_path","source_model","create_ngrams","target_language","dictionary","trim_input","evaluation",
             "evaluation_path","evaluation_datasets","lid_threshold","order_ngram","k_ngrams","ngrams_percentage",
             "doc_default","doc_limit","ppl_threshold","len_penalty","web_tags","is_standard_lang","search_preference",
-            "use_window","window_len","output_path","statistics_path","download_path","ppl_path","timeout","fingerprint"]
+            "use_window_par_filter","use_doc_filter","filter_type","window_len","filter_threshold","output_path",
+            "statistics_path","download_path","ppl_path","timeout","fingerprint"]
         
         if stat(self.absolute_path).st_size == 0:
             self.prepare_header()
@@ -62,7 +62,7 @@ class ExperimentsLogger(LoggerBase):
                 elif isinstance(found_val, bool):
                     found_val = str(found_val)
                 elif isinstance(found_val, list):
-                    found_val = ','.join(found_val)
+                    found_val = ','.join([str(item) for item in found_val])
                 elif isinstance(found_val, float) or isinstance(found_val, int):
                     found_val = str(found_val)
                     

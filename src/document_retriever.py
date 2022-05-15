@@ -4,10 +4,8 @@ from googlesearch import search
 from bs4 import BeautifulSoup
 import requests
 import re
-import string
 import urllib
 import hashlib
-import pandas as pd
 import time
 from requests_html import HTML
 from requests_html import HTMLSession
@@ -17,6 +15,14 @@ import socket
 from logger import LoggerBase
 from os import path
 
+BING_API = "https://api.bing.microsoft.com/v7.0/search"
+BING_KEY = "20ce45f4382045c1a7816d2bdec3d506"
+headers = {'Ocp-Apim-Subscription-Key': "20ce45f4382045c1a7816d2bdec3d506"}
+
+# global constant parsing variable
+PAGES = "webPages"
+CONCRETE_PAGES = "value"
+URL = 'url'
 
 class DocumentRetriever:
     def __init__(self, search_preference, download_path, doc_limit, doc_default, web_tags, lang=None):
@@ -32,7 +38,7 @@ class DocumentRetriever:
         self.lang = utils.to_lower(lang)
         self.url_mapper = LoggerBase(download_path, "url_mapper")
         
-    def search_term(self, term, cnt):
+    def search_term(self, term, cnt, dct):
         """Search web for the given term, returns links"""
         
         # adjust cnt for the maximum document limit
@@ -40,15 +46,14 @@ class DocumentRetriever:
             cnt = self.doc_limit
         
         if self.search_preference == "google":
-            return self.remove_unwanted(self._google_api(term, cnt))
+            self._google_api(term, cnt, dct)
         else:
-            return self.remove_unwanted(self._bingapi(term, cnt))
+            self._bingapi(term, cnt, dct)
         
     def remove_unwanted(self, links):
         links = list(filter(lambda link: (path.splitext(link)[-1]).casefold() not in self.unwanted, links))
         return links
         
-    # https://practicaldatascience.co.uk/data-science/how-to-scrape-google-search-results-using-python
     def estimate_term_webprecision(self, term):
         """Estimate how many documents are indexed overall in the search engine"""
         # prepare the query term
@@ -140,9 +145,11 @@ class DocumentRetriever:
         content = content.strip('\n')
         return content
         
-    def _google_api(self, term, cnt):
+        
+    def _google_api(self, term, cnt, dct):
         """Return obtained links for term"""
-        #return ["https://zh.wikipedia.org/wiki/%E7%8C%AB"]
+        dct["links"] = ["https://cs.wikipedia.org/wiki/Ko%C4%8Dka_dom%C3%A1c%C3%AD"]
+        return
         
         links = []
     
@@ -156,14 +163,24 @@ class DocumentRetriever:
         except (socket.gaierror, urllib.error.URLError) as e:
             pass
     
-        return links
+        links = self.remove_unwanted(links)
+        dct["links"] = links
 
-    def _bingapi(self, term, cnt):
+    def _bingapi(self, term, cnt, dct):
         """Return obtained links for term"""
-        pass
-
-    def _create_bing_query(self, term):
-        pass
+        query_params = self._create_bing_query(term)
+        response = requests.get(BING_API,params=query_params,headers=headers)
+        #extract_webaddresses(response)
+        dct["links"] = self.remove_unwanted(self._extract_webaddresses(response))
+        
+    
+    # extract links from the json response
+    def _extract_webaddresses(self, full_response):
+        """Preprocess obtained response from the web search"""
+        individual_pages = full_response[PAGES][CONCRETE_PAGES]
+        web_adresses = [page[URL] for page in individual_pages]
+        web_adresses = [page.replace('\\','') for page in web_adresses]
+        return web_adresses
     
     # create search term for continuous term
     def _clean_bing_query(self, term):
