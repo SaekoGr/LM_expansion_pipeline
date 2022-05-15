@@ -138,13 +138,12 @@ class WebCrawler:
         
         # clean the document
         clean_document = self.text_cleaner.clean_document(raw_document)
-        print(clean_document)
         
         # language identification
         lid_result = self.lid.is_target_lang(' '.join(clean_document))
         
-        current_time = datetime.now()
-        print(term, link, str(len(''.join(raw_document))), str(len(''.join(clean_document))), current_time.strftime("%H:%M:%S"))
+        #current_time = datetime.now()
+        #print(term, link, str(len(''.join(raw_document))), str(len(''.join(clean_document))), current_time.strftime("%H:%M:%S"))
         
         # ppl results
         ppl_result = self.lm_api.evaluate_ppl_doc(clean_document, self.fingerprint, link_fingerprint, link, term)
@@ -153,7 +152,6 @@ class WebCrawler:
             clean_document = self.lm_api.filter_document(clean_document)
         
         if self.parameters.use_window_par_filter:
-            print("PARAM FIL")
             clean_document = self.lm_api.filter_window(clean_document)
 
         # access and log results
@@ -241,10 +239,6 @@ class WebCrawler:
 
             links = found_links["links"]
             
-            print("GOT LINKS")
-            print(links)
-            print(term)
-            
             
             # iterate over all the links
             for link in links:
@@ -256,8 +250,7 @@ class WebCrawler:
                 if single_search.exitcode is None:
                     #print("TIMEOUTED:\t" +  link)
                     pass
-                
-            exit(1)
+
 
     def mix_models(self):
         # create LM from the source file

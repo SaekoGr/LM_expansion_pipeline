@@ -148,8 +148,8 @@ class DocumentRetriever:
         
     def _google_api(self, term, cnt, dct):
         """Return obtained links for term"""
-        dct["links"] = ["https://cs.wikipedia.org/wiki/Ko%C4%8Dka_dom%C3%A1c%C3%AD"]
-        return
+        #dct["links"] = ["https://cs.wikipedia.org/wiki/Ko%C4%8Dka_dom%C3%A1c%C3%AD"]
+        #return
         
         links = []
     
